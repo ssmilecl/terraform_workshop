@@ -8,7 +8,12 @@ output "webhook_url" {
   value       = "${module.atlantis.url}/events"
 }
 
-output "ecs_task_role" {
-  description = "Role ARN for Atlantis ECS task"
-  value       = module.atlantis.service.task_role_arn
-} 
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.atlantis.alb.dns_name
+}
+
+output "alb_zone_id" {
+  description = "Zone ID of the Application Load Balancer"
+  value       = module.atlantis.alb.zone_id
+}

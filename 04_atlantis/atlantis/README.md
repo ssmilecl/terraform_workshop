@@ -16,11 +16,30 @@ This guide will help you set up Atlantis for automated Terraform plan and apply 
    - Go to GitHub Settings → Developer settings → Personal access tokens
    - Click "Generate new token"
    - Select scopes:
-     - repo (all)
-     - admin:repo_hook
+     - repo (terraform_workshop)
+     - Webhooks: readonly
+     - Pull requests: read/write
    - Copy and save the token
 
-3. AWS Requirements
+3. Upload GitHub Token and Webhook Secret to AWS Secrets Manager
+   ```bash
+   # Generate webhook secret
+   WEBHOOK_SECRET=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 20)
+   echo "Generated webhook secret: $WEBHOOK_SECRET"
+
+   # Create JSON with secrets
+   echo "{\"ATLANTIS_GH_TOKEN\":\"[your-github-token]\",\"ATLANTIS_GH_WEBHOOK_SECRET\":\"$WEBHOOK_SECRET\"}" > secrets.json
+
+   # Upload to Secrets Manager
+   aws secretsmanager put-secret-value \
+     --secret-id atlantis \
+     --secret-string file://secrets.json
+
+   # Clean up
+   rm secrets.json
+   ```
+
+4. AWS Requirements
    - VPC with public subnets
    - Route53 hosted zone
    - ACM certificate for your Atlantis domain

@@ -14,12 +14,17 @@ module "atlantis" {
   name = "atlantis"
 
   # VPC
-  # VPC configuration using data sources
-  vpc_id               = data.aws_vpc.atlantis.id
-  alb_subnets          = data.aws_subnets.public.ids
-  service_subnets      = data.aws_subnets.private.ids
-  certificate_arn      = var.certificate_arn
-  validate_certificate = false
+  vpc_id          = data.aws_vpc.atlantis.id
+  alb_subnets     = data.aws_subnets.public.ids
+  service_subnets = data.aws_subnets.private.ids
+
+  # Certificate configuration
+  certificate_arn     = var.certificate_arn
+  route53_zone_id     = var.route53_zone_id
+  route53_record_name = var.route53_record_name
+
+  # Disable certificate creation/import in the module
+  create_certificate = false
 
   # Atlantis
   atlantis = {
@@ -40,11 +45,11 @@ module "atlantis" {
     secrets = [
       {
         name      = "ATLANTIS_GH_TOKEN"
-        valueFrom = aws_secretsmanager_secret.github_token.arn
+        valueFrom = data.aws_secretsmanager_secret.atlantis_secrets.arn
       },
       {
         name      = "ATLANTIS_GH_WEBHOOK_SECRET"
-        valueFrom = aws_secretsmanager_secret.webhook_secret.arn
+        valueFrom = data.aws_secretsmanager_secret.atlantis_secrets.arn
       }
     ]
   }
@@ -52,8 +57,7 @@ module "atlantis" {
   # ECS Service
   service = {
     task_exec_secret_arns = [
-      aws_secretsmanager_secret.github_token.arn,
-      aws_secretsmanager_secret.webhook_secret.arn
+      data.aws_secretsmanager_secret.atlantis_secrets.arn
     ]
     tasks_iam_role_policies = {
       AdministratorAccess = "arn:aws:iam::aws:policy/AdministratorAccess"
@@ -64,7 +68,7 @@ module "atlantis" {
   enable_efs = true
   efs = {
     mount_targets = {
-      for subnet in var.private_subnet_ids :
+      for subnet in data.aws_subnets.private.ids :
       data.aws_subnet.private[subnet].availability_zone => {
         subnet_id = subnet
       }
@@ -74,17 +78,3 @@ module "atlantis" {
   tags = var.tags
 }
 
-# Secrets for GitHub token and webhook
-resource "aws_secretsmanager_secret" "github_token" {
-  name = "atlantis/github-token"
-}
-
-resource "aws_secretsmanager_secret" "webhook_secret" {
-  name = "atlantis/webhook-secret"
-}
-
-# Data source to get AZ for EFS mount targets
-data "aws_subnet" "private" {
-  for_each = toset(var.private_subnet_ids)
-  id       = each.value
-}

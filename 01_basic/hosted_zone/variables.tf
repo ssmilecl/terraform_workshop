@@ -9,12 +9,6 @@ variable "region" {
   default     = "us-east-1" # Required for ACM with CloudFront
 }
 
-variable "content_version" {
-  description = "Version string for static content"
-  type        = string
-  default     = "v1"
-}
-
 variable "account_id" {
   description = "AWS account ID"
   type        = string

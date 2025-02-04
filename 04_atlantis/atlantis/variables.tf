@@ -9,25 +9,11 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "public_subnet_ids" {
-  description = "List of public subnet IDs for ALB"
-  type        = list(string)
-}
-
-variable "private_subnet_ids" {
-  description = "List of private subnet IDs for Atlantis ECS tasks"
-  type        = list(string)
-}
-
 variable "certificate_arn" {
   description = "ARN of ACM certificate to use with ALB"
   type        = string
 }
 
-variable "route53_zone_id" {
-  description = "Route53 zone ID for DNS record"
-  type        = string
-}
 
 variable "github_user" {
   description = "GitHub username for Atlantis"
@@ -43,4 +29,14 @@ variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
-} 
+}
+
+variable "route53_record_name" {
+  description = "Route53 record name for DNS record"
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = "Route53 zone ID for DNS record"
+  type        = string
+}

@@ -1,14 +1,14 @@
 provider "aws" {
   region = var.region
 }
+# Create NS records in the main zone for student zones
+resource "aws_route53_record" "student_ns_records" {
+  for_each = var.student_zones
 
-resource "aws_route53_record" "student_cnames" {
-  for_each = merge(var.acm_records, var.cdn_records)
-
-  zone_id = var.hosted_zone_id
+  zone_id = var.main_hosted_zone_id
   name    = each.key
-  type    = each.value.type
-  ttl     = each.value.ttl
+  type    = "NS"
+  ttl     = 300
 
-  records = [each.value.record]
+  records = each.value.nameservers
 }

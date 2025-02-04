@@ -32,3 +32,9 @@ data "aws_subnet" "private" {
   for_each = toset(data.aws_subnets.private.ids)
   id       = each.value
 }
+
+
+# Secrets for GitHub token and webhook
+data "aws_secretsmanager_secret" "atlantis_secrets" {
+  name = "atlantis"
+}

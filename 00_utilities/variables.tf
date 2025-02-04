@@ -4,25 +4,14 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "hosted_zone_id" {
-  description = "Route53 hosted zone ID"
+variable "main_hosted_zone_id" {
+  description = "Main workshop Route53 hosted zone ID (aws.jrworkshop.au)"
   type        = string
 }
 
-variable "acm_records" {
-  description = "Map of ACM DNS records to create"
+variable "student_zones" {
+  description = "Map of student domains to their nameservers"
   type = map(object({
-    type   = string
-    ttl    = number
-    record = string
-  }))
-}
-
-variable "cdn_records" {
-  description = "Map of CloudFront DNS records to create"
-  type = map(object({
-    type   = string
-    ttl    = number
-    record = string
+    nameservers = list(string)
   }))
 }

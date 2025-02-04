@@ -120,3 +120,16 @@ resource "aws_cloudfront_distribution" "cdn" {
     minimum_protocol_version = "TLSv1.2_2021"
   }
 }
+
+# CloudFront DNS record (CNAME)
+resource "aws_route53_record" "cdn_alias" {
+  zone_id = var.hosted_zone_id
+  name    = var.student_subdomain
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cdn.domain_name
+    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
