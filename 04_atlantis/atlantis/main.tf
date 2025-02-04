@@ -45,11 +45,11 @@ module "atlantis" {
     secrets = [
       {
         name      = "ATLANTIS_GH_TOKEN"
-        valueFrom = data.aws_secretsmanager_secret.atlantis_secrets.arn
+        valueFrom = data.aws_ssm_parameter.github_token.arn
       },
       {
         name      = "ATLANTIS_GH_WEBHOOK_SECRET"
-        valueFrom = data.aws_secretsmanager_secret.atlantis_secrets.arn
+        valueFrom = data.aws_ssm_parameter.webhook_secret.arn
       }
     ]
   }
@@ -57,7 +57,8 @@ module "atlantis" {
   # ECS Service
   service = {
     task_exec_secret_arns = [
-      data.aws_secretsmanager_secret.atlantis_secrets.arn
+      data.aws_ssm_parameter.github_token.arn,
+      data.aws_ssm_parameter.webhook_secret.arn
     ]
     tasks_iam_role_policies = {
       AdministratorAccess = "arn:aws:iam::aws:policy/AdministratorAccess"

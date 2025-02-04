@@ -33,8 +33,11 @@ data "aws_subnet" "private" {
   id       = each.value
 }
 
+# Fetch existing SSM Parameters
+data "aws_ssm_parameter" "github_token" {
+  name = "/atlantis/github/token"
+}
 
-# Secrets for GitHub token and webhook
-data "aws_secretsmanager_secret" "atlantis_secrets" {
-  name = "atlantis"
+data "aws_ssm_parameter" "webhook_secret" {
+  name = "/atlantis/github/webhook-secret"
 }
