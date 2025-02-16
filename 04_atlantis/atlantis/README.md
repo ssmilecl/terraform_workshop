@@ -21,22 +21,22 @@ This guide will help you set up Atlantis for automated Terraform plan and apply 
      - Pull requests: read/write
    - Copy and save the token
 
-3. Upload GitHub Token and Webhook Secret to AWS Secrets Manager
+3. Store GitHub Token and Webhook Secret in AWS Parameter Store
    ```bash
    # Generate webhook secret
    WEBHOOK_SECRET=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 20)
    echo "Generated webhook secret: $WEBHOOK_SECRET"
 
-   # Create JSON with secrets
-   echo "{\"ATLANTIS_GH_TOKEN\":\"[your-github-token]\",\"ATLANTIS_GH_WEBHOOK_SECRET\":\"$WEBHOOK_SECRET\"}" > secrets.json
+   # Store in Parameter Store
+   aws ssm put-parameter \
+     --name "/atlantis/github/token" \
+     --value "[your-github-token]" \
+     --type "SecureString"
 
-   # Upload to Secrets Manager
-   aws secretsmanager put-secret-value \
-     --secret-id atlantis \
-     --secret-string file://secrets.json
-
-   # Clean up
-   rm secrets.json
+   aws ssm put-parameter \
+     --name "/atlantis/github/webhook-secret" \
+     --value "$WEBHOOK_SECRET" \
+     --type "SecureString"
    ```
 
 4. AWS Requirements
@@ -64,7 +64,7 @@ This guide will help you set up Atlantis for automated Terraform plan and apply 
    - Add webhook:
      - Payload URL: https://[your-atlantis-domain]/events
      - Content type: application/json
-     - Secret: [your-webhook-secret]
+     - Secret: [your-webhook-secret] (retrieve from Parameter Store if needed)
      - Events: Pull request, Push
 
 4. Test the Setup
@@ -106,9 +106,16 @@ This guide will help you set up Atlantis for automated Terraform plan and apply 
    - Control who can run apply
 
 2. Secrets Management
-   - Use AWS Secrets Manager
+   - Use AWS Parameter Store for secure storage
    - Rotate GitHub tokens regularly
    - Protect webhook secrets
+   - Use SecureString parameter type
+   - Implement proper IAM permissions
+
+3. Parameter Store Access
+   - ECS task role has minimal required permissions
+   - Use KMS encryption for SecureString parameters
+   - Monitor parameter access through CloudTrail
 
 ## Troubleshooting
 
@@ -116,11 +123,13 @@ This guide will help you set up Atlantis for automated Terraform plan and apply 
    - Webhook failures
    - Plan/Apply errors
    - Permission issues
+   - Parameter Store access denied
 
 2. Logs
    - Check ECS task logs
    - Monitor ALB access logs
    - Review GitHub webhook delivery logs
+   - Check Parameter Store access logs
 
 ## Cleanup
 
