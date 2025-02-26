@@ -17,8 +17,11 @@
 
 1. Update `terraform.tfvars`:
 ```hcl
-student_subdomain = "johnsnow.aws.jrworkshop.au"  # Your assigned subdomain
-content_version = "v1"                            # Version tag for your content
+student_subdomain = "johnsnow.aws.jrworkshop.au"  # Your domain name
+content_version   = "johnsnow-tf-basic-v1"       # Version tag for your content
+account_id        = "xxxxxxxxxx"               # Change to your AWS account ID
+hosted_zone_id    = "xxxxxxxxxxxxxx"      # Change to your hosted zone ID
+
 ```
 
 2. Initial deployment:
