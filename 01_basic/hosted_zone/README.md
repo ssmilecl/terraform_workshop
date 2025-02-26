@@ -12,7 +12,7 @@ Nameservers are like GPS for the internet. They tell the world where to find inf
 ## Prerequisites
 1. AWS account access
 2. Terraform installed on your machine
-3. Your assigned subdomain from the instructor (e.g., `johnsnow.aws.jrworkshop.au`)
+3. Update your student subdoamin with your name (e.g. For john snow it will be `johnsnow.aws.jrworkshop.au`)
 4. Your AWS account ID
 
 ## Steps to Create Your Hosted Zone
