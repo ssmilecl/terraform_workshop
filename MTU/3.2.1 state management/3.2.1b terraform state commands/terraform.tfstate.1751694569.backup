@@ -1,0 +1,212 @@
+{
+  "version": 4,
+  "terraform_version": "1.11.3",
+  "serial": 3,
+  "lineage": "8c51498b-794c-ba21-f91f-070747df42b2",
+  "outputs": {
+    "demo_summary": {
+      "value": {
+        "demo_type": "state_rm_import_combined",
+        "environment": "demo",
+        "managed_bucket": "demo-managed-bucket-12345",
+        "region": "us-east-1",
+        "state_lifecycle_bucket": "demo-lifecycle-bucket-12345"
+      },
+      "type": [
+        "object",
+        {
+          "demo_type": "string",
+          "environment": "string",
+          "managed_bucket": "string",
+          "region": "string",
+          "state_lifecycle_bucket": "string"
+        }
+      ]
+    },
+    "managed_bucket_arn": {
+      "value": "arn:aws:s3:::demo-managed-bucket-12345",
+      "type": "string"
+    },
+    "managed_bucket_name": {
+      "value": "demo-managed-bucket-12345",
+      "type": "string"
+    },
+    "state_lifecycle_bucket_arn": {
+      "value": "arn:aws:s3:::demo-lifecycle-bucket-12345",
+      "type": "string"
+    },
+    "state_lifecycle_bucket_name": {
+      "value": "demo-lifecycle-bucket-12345",
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "managed_bucket",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::demo-managed-bucket-12345",
+            "bucket": "demo-managed-bucket-12345",
+            "bucket_domain_name": "demo-managed-bucket-12345.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "demo-managed-bucket-12345.s3.us-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": false,
+            "grant": [
+              {
+                "id": "5ff18b57705cce689e955b40d900153a54fda0526c921325588f0f6df1c6ab70",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z3AQBSTGFYJSTF",
+            "id": "demo-managed-bucket-12345",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "us-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "AES256"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {
+              "Environment": "demo",
+              "Management": "always_managed",
+              "Name": "demo-managed-bucket",
+              "Purpose": "Stays under Terraform management",
+              "Type": "state_rm_demo"
+            },
+            "tags_all": {
+              "Environment": "demo",
+              "Management": "always_managed",
+              "Name": "demo-managed-bucket",
+              "Purpose": "Stays under Terraform management",
+              "Type": "state_rm_demo"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "state_lifecycle_bucket",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::demo-lifecycle-bucket-12345",
+            "bucket": "demo-lifecycle-bucket-12345",
+            "bucket_domain_name": "demo-lifecycle-bucket-12345.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "demo-lifecycle-bucket-12345.s3.us-east-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": false,
+            "grant": [
+              {
+                "id": "5ff18b57705cce689e955b40d900153a54fda0526c921325588f0f6df1c6ab70",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z3AQBSTGFYJSTF",
+            "id": "demo-lifecycle-bucket-12345",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "us-east-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "AES256"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {
+              "Environment": "demo",
+              "Management": "state_lifecycle_demo",
+              "Name": "demo-lifecycle-bucket",
+              "Purpose": "Demonstrates state rm + import workflow",
+              "Type": "state_rm_demo"
+            },
+            "tags_all": {
+              "Environment": "demo",
+              "Management": "state_lifecycle_demo",
+              "Name": "demo-lifecycle-bucket",
+              "Purpose": "Demonstrates state rm + import workflow",
+              "Type": "state_rm_demo"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
