@@ -32,6 +32,7 @@ resource "aws_s3_bucket" "dev_bucket" {
   tags = {
     Name        = "${var.project_name}-${var.environment}-bucket"
     Environment = var.environment
+    Project     = var.project_name
     Purpose     = "CI/CD Demo"
     ManagedBy   = "Terraform"
   }

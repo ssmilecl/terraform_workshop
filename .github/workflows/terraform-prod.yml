@@ -94,8 +94,12 @@ jobs:
 
       - name: Extract Production Outputs
         id: extract_prod_outputs
+        working-directory: MTU/5.2 terraform cicd/environments/prod
         run: |
           echo "Extracting Terraform outputs..."
+          echo "Current directory: $(pwd)"
+          echo "Terraform files present:"
+          ls -la *.tf
 
           # Simple, bulletproof output extraction - no JSON parsing
           if terraform output > /dev/null 2>&1; then
@@ -124,6 +128,7 @@ jobs:
           echo "🚀 Production deployment completed successfully!"
 
       - name: Create Production Summary
+        working-directory: MTU/5.2 terraform cicd/environments/prod
         run: |
           echo "# 🚀 Production Environment Deployed Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
