@@ -1,7 +1,7 @@
 # Outputs for Backend Setup
 
 output "state_bucket_name" {
-  description = "Name of the S3 bucket created for state storage"
+  description = "Name of the S3 bucket created for state storage (with random suffix)"
   value       = aws_s3_bucket.state_bucket.id
 }
 

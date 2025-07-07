@@ -6,10 +6,10 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "state_bucket_name" {
-  description = "Name of the S3 bucket for storing Terraform state (must be globally unique)"
+variable "state_bucket_prefix" {
+  description = "Prefix for the S3 bucket name (random suffix will be added for uniqueness)"
   type        = string
-  default     = "terraform-state-demo-bucket-12345"
+  default     = "terraform-state-demo-bucket"
 }
 
 variable "state_dynamodb_table" {

@@ -1,112 +1,769 @@
-# Terraform CI/CD Multi-Environment Pipeline
+# Terraform CI/CD Separated Environment Pipelines
 
 ## Overview
 
-This example demonstrates a **production-ready Terraform CI/CD pipeline** with multi-environment deployment using **folder-based environment separation**. The pipeline automatically deploys to development, runs automated tests with **Terratest**, and promotes to production only after **manual approval**.
+This example demonstrates **enterprise-grade Terraform CI/CD pipelines** with **complete environment separation**. Each environment has its own independent pipeline, promoting better isolation, faster development cycles, and controlled production deployments.
+
+**🔗 PREREQUISITE**: Complete experiment **5.1 terraform remote state** first to set up the shared backend infrastructure!
+
+## Architecture Philosophy
+
+### **Separated Pipelines = Better Practices**
+
+Instead of a single combined pipeline, we use **two independent pipelines**:
+
+1. **Development Pipeline**: Fast, automatic, development-focused
+2. **Production Pipeline**: Controlled, manual, production-focused
+
+### Benefits of Separation
+
+| Aspect | Combined Pipeline | Separated Pipelines ✅ |
+|--------|-------------------|----------------------|
+| **Development Speed** | ❌ Blocked by prod issues | ✅ Independent dev cycles |
+| **Production Control** | ❌ Automatic promotion | ✅ Manual approval required |
+| **Failure Impact** | ❌ One failure blocks all | ✅ Environment isolation |
+| **Testing Strategy** | ❌ Shared test outcomes | ✅ Environment-specific tests |
+| **Deployment Timing** | ❌ Forced sequences | ✅ Independent schedules |
+| **Risk Management** | ❌ Higher blast radius | ✅ Contained failures |
 
 ## Pipeline Architecture
 
-### Environment Flow
+### Development Pipeline (`terraform-dev.yml`)
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              CI/CD Pipeline with Approval                  │
+│               Development Pipeline                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. Code Push   →   2. Deploy Dev   →   3. Run Tests        │
-│      (main)           (automatic)        (Terratest)        │
-│                         ⬇                   ⬇             │
-│                         ✅                   ✅             │
+│  Trigger: Changes to environments/dev/**                   │
 │                                                             │
-│  6. Complete    ←   5. Deploy Prod   ←   4. 🛑 APPROVAL      │
-│                       (automatic)         (manual)          │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐                │
+│  │  Code   │ → │ Deploy  │ → │  Test   │                │
+│  │  Push   │    │   Dev   │    │  Dev    │                │
+│  └─────────┘    └─────────┘    └─────────┘                │
+│                                                             │
+│  Result: ✅ Fast development feedback                       │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Folder Structure
+### Production Pipeline (`terraform-prod.yml`)
+```
+┌─────────────────────────────────────────────────────────────┐
+│               Production Pipeline                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Trigger: Manual dispatch OR release tags                  │
+│                                                             │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐  │
+│  │ Manual  │ → │ Approval │ → │ Deploy  │ → │  Test   │  │
+│  │ Trigger │    │Required │    │  Prod   │    │  Prod   │  │
+│  └─────────┘    └─────────┘    └─────────┘    └─────────┘  │
+│                                                             │
+│  Result: ✅ Controlled production deployment                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Project Structure
 
 ```
 MTU/5.2 terraform cicd/
 ├── environments/
 │   ├── dev/                    # Development environment
-│   │   ├── main.tf            # Infrastructure resources
-│   │   ├── variables.tf       # Environment variables
-│   │   ├── outputs.tf         # Infrastructure outputs
+│   │   ├── main.tf            # Dev infrastructure
+│   │   ├── variables.tf       # Dev variables
+│   │   ├── outputs.tf         # Dev outputs
 │   │   └── terraform.tfvars   # Dev configuration
 │   └── prod/                   # Production environment
-│       ├── main.tf            # Infrastructure resources (prod features)
-│       ├── variables.tf       # Environment variables
-│       ├── outputs.tf         # Infrastructure outputs
+│       ├── main.tf            # Prod infrastructure
+│       ├── variables.tf       # Prod variables
+│       ├── outputs.tf         # Prod outputs
 │       └── terraform.tfvars   # Prod configuration
 ├── tests/                      # Automated testing
 │   ├── terraform_test.go      # Infrastructure tests
 │   └── go.mod                 # Go dependencies
-├── .github/workflows/          # CI/CD pipeline
-│   └── terraform-cicd.yml     # GitHub Actions workflow
+├── .github/workflows/          # Separated CI/CD pipelines
+│   ├── terraform-dev.yml      # Development pipeline
+│   └── terraform-prod.yml     # Production pipeline
 └── README.md
 ```
 
-## Key Features
+## Setup Instructions
 
-### 🎯 **Generic Infrastructure Pipeline**
+### Step 1: Backend Setup (PREREQUISITE)
 
-This pipeline works with **any Terraform infrastructure**, not just specific resources:
+**⚠️ IMPORTANT**: Complete experiment **5.1 terraform remote state** first!
 
-- **Flexible Resource Support**: S3 buckets, EC2 instances, VPCs, databases, etc.
-- **Generic Output Handling**: Automatically captures all Terraform outputs
-- **Universal Testing**: Terratest validates any infrastructure type
-- **Environment Agnostic**: Works with any environment configuration
+```bash
+# 1. Complete the 5.1 remote state experiment
+cd "../5.1 terraform remote state"
+# Follow the complete 5.1 README setup
 
-### 🛡️ **Production Approval Workflow**
+# 2. Get the backend bucket name
+cd backend-setup
+BUCKET_NAME=$(terraform output -raw state_bucket_name)
+echo "Backend bucket: $BUCKET_NAME"
 
-- **Development**: Deploys automatically on push to main
-- **Testing**: Runs automatically after dev deployment
-- **Production**: **Requires manual approval** before deployment
+# 3. Return to this experiment and update backend configurations
+cd ../../"5.2 terraform cicd"
 
-### 📊 **Comprehensive Monitoring**
+# 4. Update both environments with the shared backend
+sed -i "s/terraform-state-demo-bucket-<random>/$BUCKET_NAME/g" environments/dev/main.tf
+sed -i "s/terraform-state-demo-bucket-<random>/$BUCKET_NAME/g" environments/prod/main.tf
 
-- **Real-time Summaries**: Infrastructure outputs displayed in GitHub
-- **Test Results**: Terratest results with detailed feedback
-- **Deployment Status**: Clear success/failure reporting
-- **Cleanup on Failure**: Automatic resource cleanup
+echo "✅ Backend configured! Ready for separated pipelines."
+```
 
-## Pipeline Components
+### Step 2: GitHub Environment Setup
 
-### 1. **Development Deployment**
-- **Trigger**: Push to main branch
-- **Environment**: `development` (GitHub environment)
-- **Resources**: Any infrastructure defined in `environments/dev/`
-- **State**: `dev/terraform.tfstate` (remote S3 backend)
+#### Create GitHub Environments
 
-### 2. **Infrastructure Testing**
-- **Framework**: Terratest with Go
-- **Validation**: Resource existence, configuration, outputs
-- **Timeout**: 15 minutes with proper error handling
-- **Requirement**: Dev deployment must succeed
+1. **Navigate to Repository Settings**
+   - Go to your GitHub repository
+   - Click **Settings** → **Environments**
 
-### 3. **Production Deployment**
-- **Trigger**: Tests pass + **manual approval**
-- **Environment**: `production` (GitHub environment with approval)
-- **Resources**: Any infrastructure defined in `environments/prod/`
-- **State**: `prod/terraform.tfstate` (remote S3 backend)
+2. **Create Development Environment**
+   - Click **New environment**
+   - Name: `development`
+   - **No protection rules needed** (automatic deployment)
+   - Add environment secrets:
+     - `AWS_ACCESS_KEY_ID`
+     - `AWS_SECRET_ACCESS_KEY`
 
-### 4. **Cleanup & Monitoring**
-- **Failure Cleanup**: Automatic destruction of failed resources
-- **Deployment Summaries**: JSON outputs displayed in GitHub UI
-- **Status Tracking**: Real-time pipeline status updates
+3. **Create Production Environment**
+   - Click **New environment**
+   - Name: `production`
+   - **Enable protection rules**:
+     - ✅ Required reviewers (add yourself or team)
+     - ✅ Prevent self-review (recommended)
+   - Add environment secrets:
+     - `AWS_ACCESS_KEY_ID`
+     - `AWS_SECRET_ACCESS_KEY`
+
+#### Configure Branch Protection
+
+1. **Navigate to Branch Settings**
+   - Go to **Settings** → **Branches**
+   - Add rule for `main` branch
+   - Enable basic protection (required for production environment)
+
+## Hands-On Walkthrough
+
+### Prerequisites: Fork the Repository
+
+**🍴 Step 1: Fork this repository to your GitHub account**
+
+1. Go to the original repository
+2. Click **Fork** button (top right)
+3. Select your GitHub account
+4. Clone your forked repository:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/terraform_workshop.git
+cd terraform_workshop
+```
+
+### Step-by-Step CI/CD Demo
+
+Now let's walk through the complete CI/CD process step by step!
+
+#### Phase 1: Set Up Backend Infrastructure
+
+**🏗️ Step 1: Create the Backend (5.1 Experiment)**
+
+```bash
+# Navigate to the remote state experiment
+cd "MTU/5.1 terraform remote state/backend-setup"
+
+# Initialize and create backend infrastructure
+terraform init
+terraform apply -auto-approve
+
+# 🔑 IMPORTANT: Save the bucket name - you'll need it!
+BUCKET_NAME=$(terraform output -raw state_bucket_name)
+echo "✅ Backend bucket created: $BUCKET_NAME"
+
+# Save this for later use
+echo $BUCKET_NAME > /tmp/backend_bucket_name.txt
+```
+
+**Expected Output:**
+```
+Apply complete! Resources: 5 added, 0 changed, 0 destroyed.
+
+Outputs:
+state_bucket_name = "terraform-state-demo-bucket-a1b2c3d4"
+setup_complete = "✅ Backend setup complete! You can now use remote state in your main configuration."
+```
+
+#### Phase 2: Set Up GitHub Environments
+
+**🔧 Step 2: Configure GitHub Environments in Your Forked Repo**
+
+1. **Navigate to Your Forked Repository**
+   - Go to `https://github.com/YOUR_USERNAME/terraform_workshop`
+   - Click **Settings** tab
+
+2. **Create Development Environment**
+   - Go to **Settings** → **Environments**
+   - Click **New environment**
+   - Name: `development`
+   - **No protection rules** (leave unchecked)
+   - Add secrets:
+     - `AWS_ACCESS_KEY_ID`: Your AWS access key
+     - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
+   - Click **Save protection rules**
+
+3. **Create Production Environment**
+   - Click **New environment** again
+   - Name: `production`
+   - **Enable protection rules**:
+     - ✅ Check **Required reviewers**
+     - Add yourself as a reviewer
+     - ✅ Check **Prevent self-review** (if you have team members)
+   - Add the same AWS secrets as development
+   - Click **Save protection rules**
+
+4. **Set Up Branch Protection**
+   - Go to **Settings** → **Branches**
+   - Click **Add rule**
+   - Branch name pattern: `main`
+   - ✅ Check **Require a pull request before merging**
+   - Click **Create**
+
+**💡 Your environments should now show:**
+```
+✅ development (No protection rules)
+✅ production (Protection rules: Required reviewers)
+```
+
+#### Phase 3: Trigger Development Pipeline
+
+**🚀 Step 3: Update Backend Configuration to Trigger Dev Pipeline**
+
+```bash
+# Navigate to the 5.2 experiment
+cd "../../5.2 terraform cicd"
+
+# Get the backend bucket name from previous step
+BUCKET_NAME=$(cat /tmp/backend_bucket_name.txt)
+echo "Using backend bucket: $BUCKET_NAME"
+
+# Update the development environment with real bucket name
+sed -i "s/terraform-state-demo-bucket-<random>/$BUCKET_NAME/g" environments/dev/main.tf
+
+# Verify the change
+echo "🔍 Updated dev backend configuration:"
+grep "bucket" environments/dev/main.tf
+```
+
+**Expected Change:**
+```diff
+- bucket = "terraform-state-demo-bucket-<random>"
++ bucket = "terraform-state-demo-bucket-a1b2c3d4"
+```
+
+**🚀 Step 4: Commit and Push to Trigger Development Pipeline**
+
+```bash
+# Stage the changes
+git add environments/dev/main.tf
+
+# Commit with a descriptive message
+git commit -m "feat: configure dev backend with actual S3 bucket name
+
+- Updated backend configuration in environments/dev/main.tf
+- This should trigger the development pipeline automatically
+- Backend bucket: $BUCKET_NAME"
+
+# Push to trigger the pipeline
+git push origin main
+```
+
+**📱 Step 5: Watch the Development Pipeline Execute**
+
+1. **Go to GitHub Actions**
+   - Navigate to your forked repo
+   - Click **Actions** tab
+   - You should see "Terraform Development Environment" running
+
+2. **Pipeline Stages to Watch:**
+   ```
+   🟡 Terraform Development Environment (In Progress)
+   └── 🟡 Deploy to Development
+       ├── ✅ Checkout
+       ├── ✅ Setup Terraform  
+       ├── ✅ Configure AWS credentials
+       ├── ✅ Terraform Format Check
+       ├── ✅ Terraform Init
+       ├── ✅ Terraform Validate
+       ├── ✅ Terraform Plan
+       ├── 🟡 Terraform Apply (Running...)
+       └── ⏳ Extract Terraform Outputs
+   ```
+
+3. **Expected Success:**
+   ```
+   ✅ Terraform Development Environment (2m 34s)
+   └── ✅ Deploy to Development (1m 45s)
+   └── ✅ Run Infrastructure Tests (0m 49s)
+   ```
+
+**🔍 Step 6: Verify Development Environment**
+
+```bash
+# Check if S3 bucket was created
+aws s3 ls | grep terraform-cicd-demo-dev
+
+# Expected output:
+# 2024-01-15 10:30:45 terraform-cicd-demo-dev-bucket
+```
+
+#### Phase 4: Trigger Production Pipeline
+
+**🏭 Step 7: Update Production Backend and Trigger Production Pipeline**
+
+```bash
+# Update the production environment with the same bucket
+sed -i "s/terraform-state-demo-bucket-<random>/$BUCKET_NAME/g" environments/prod/main.tf
+
+# Verify the change
+echo "🔍 Updated prod backend configuration:"
+grep "bucket" environments/prod/main.tf
+
+# Commit the production changes
+git add environments/prod/main.tf
+git commit -m "feat: configure prod backend with actual S3 bucket name
+
+- Updated backend configuration in environments/prod/main.tf  
+- This will be deployed via manual production pipeline
+- Backend bucket: $BUCKET_NAME"
+
+git push origin main
+```
+
+**⚠️ Notice: This won't trigger production pipeline automatically! Production requires manual trigger.**
+
+**🚀 Step 8: Manually Trigger Production Pipeline**
+
+1. **Go to GitHub Actions**
+   - Click **Actions** tab in your repo
+   - Click **Terraform Production Environment** on the left sidebar
+   - Click **Run workflow** button (top right)
+
+2. **Fill in the Workflow Dispatch Form:**
+   ```
+   Reason for production deployment:
+   ┌─────────────────────────────────────────────────────────┐
+   │ Deploy updated backend configuration to production      │
+   │ - Updated S3 backend bucket name                        │
+   │ - Ready for production deployment                       │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+3. **Click "Run workflow"**
+
+**🛑 Step 9: Experience the Approval Workflow**
+
+1. **Pipeline Starts and Pauses:**
+   ```
+   🟡 Terraform Production Environment (Waiting)
+   └── 🛑 Deploy to Production (Waiting for approval)
+       Environment: production
+       Reviewers: @YOUR_USERNAME
+   ```
+
+2. **GitHub Sends You a Notification:**
+   - 📧 Email notification
+   - 🔔 GitHub notification bell
+   - 📱 Mobile app notification (if installed)
+
+3. **Review and Approve:**
+   - Click on the pipeline run
+   - You'll see: "Review pending deployments"
+   - Click **Review deployments**
+   - Select ✅ **production**
+   - Add comment: "Approved - backend configuration update"
+   - Click **Approve and deploy**
+
+**✅ Step 10: Watch Production Pipeline Complete**
+
+After approval, the pipeline continues:
+```
+✅ Terraform Production Environment (4m 12s)
+└── ✅ Deploy to Production (2m 30s)
+    ├── ✅ Terraform Plan
+    ├── ✅ Terraform Apply  
+    └── ✅ Extract Production Outputs
+└── ✅ Run Production Tests (1m 42s)
+```
+
+**🔍 Step 11: Verify Both Environments**
+
+```bash
+# Check both environments are deployed
+aws s3 ls | grep terraform-cicd-demo
+
+# Expected output:
+# 2024-01-15 10:30:45 terraform-cicd-demo-dev-bucket
+# 2024-01-15 10:45:22 terraform-cicd-demo-prod-bucket
+
+# Check production bucket has versioning (production feature)
+aws s3api get-bucket-versioning --bucket terraform-cicd-demo-prod-bucket
+
+# Expected output:
+# {
+#     "Status": "Enabled"
+# }
+```
+
+### Understanding What Just Happened
+
+#### Development Pipeline Behavior
+- ✅ **Automatic Trigger**: Pushed changes to `environments/dev/` folder
+- ✅ **No Approval**: Development deploys immediately
+- ✅ **Fast Feedback**: Complete in ~3 minutes
+- ✅ **Independent**: Runs without affecting production
+
+#### Production Pipeline Behavior  
+- ✅ **Manual Trigger**: Required explicit workflow dispatch
+- ✅ **Approval Gate**: Paused for manual review and approval
+- ✅ **Audit Trail**: Records who approved and why
+- ✅ **Controlled**: Only deploys when intentionally triggered
+
+#### Pipeline Separation Benefits Demonstrated
+1. **Development Velocity**: Dev changes deploy immediately
+2. **Production Control**: Prod requires explicit approval
+3. **Environment Isolation**: Dev issues don't block prod
+4. **Audit Compliance**: All prod deployments are tracked
+
+### Additional Hands-On Scenarios
+
+#### Scenario 1: Making Infrastructure Changes
+
+**🔧 Add a new feature to development:**
+
+```bash
+# Edit the dev environment to add bucket lifecycle
+vim environments/dev/main.tf
+
+# Add this resource:
+resource "aws_s3_bucket_lifecycle_configuration" "dev_bucket_lifecycle" {
+  bucket = aws_s3_bucket.dev_bucket.id
+
+  rule {
+    id     = "dev_cleanup"
+    status = "Enabled"
+
+    expiration {
+      days = 7  # Delete objects after 7 days in dev
+    }
+  }
+}
+
+# Commit and push
+git add environments/dev/main.tf
+git commit -m "feat: add 7-day lifecycle policy to dev S3 bucket"
+git push origin main
+
+# Watch the dev pipeline auto-trigger!
+```
+
+**Expected Result:**
+- ✅ Dev pipeline runs automatically
+- ✅ Lifecycle policy applied to dev bucket only
+- ✅ Production remains unchanged
+
+#### Scenario 2: Production Deployment with Tag
+
+**🏷️ Deploy to production using tags:**
+
+```bash
+# First, update production with the same feature
+vim environments/prod/main.tf
+
+# Add production-appropriate lifecycle:
+resource "aws_s3_bucket_lifecycle_configuration" "prod_bucket_lifecycle" {
+  bucket = aws_s3_bucket.prod_bucket.id
+
+  rule {
+    id     = "prod_cleanup"
+    status = "Enabled"
+
+    expiration {
+      days = 365  # Keep for 1 year in production
+    }
+  }
+}
+
+# Commit but don't push yet
+git add environments/prod/main.tf
+git commit -m "feat: add 1-year lifecycle policy to prod S3 bucket"
+
+# Create a release tag to trigger production
+git tag v1.1.0
+git push origin main
+git push origin v1.1.0
+
+# Production pipeline triggers automatically via tag!
+# But still requires approval before deploying
+```
+
+#### Scenario 3: Emergency Production Fix
+
+**🚨 Quick production hotfix:**
+
+```bash
+# Make critical fix to production
+vim environments/prod/variables.tf
+
+# Change default value for emergency fix
+variable "emergency_mode" {
+  description = "Enable emergency mode"
+  type        = bool
+  default     = true  # Changed from false
+}
+
+# Quick commit and manual deployment
+git add environments/prod/variables.tf  
+git commit -m "hotfix: enable emergency mode in production"
+git push origin main
+
+# Manual trigger production pipeline immediately:
+# Go to GitHub Actions → Terraform Production Environment → Run workflow
+# Reason: "HOTFIX: Enable emergency mode for incident response"
+```
+
+### Troubleshooting Common Issues
+
+#### Issue 1: Pipeline Not Triggering
+
+**Problem:** Pushed changes but dev pipeline didn't trigger
+
+**Solution:**
+```bash
+# Check if changes are in the right folder
+git log --oneline -1
+git show --name-only HEAD
+
+# Pipeline only triggers on these paths:
+# ✅ MTU/5.2 terraform cicd/environments/dev/**  
+# ❌ Other folders won't trigger dev pipeline
+
+# If you changed wrong folder, move the changes:
+git mv other-folder/file.tf environments/dev/
+git commit -m "fix: move changes to correct dev folder"
+git push origin main
+```
+
+#### Issue 2: Approval Not Working
+
+**Problem:** Production pipeline stuck on approval
+
+**Solutions:**
+
+1. **Check if you're added as reviewer:**
+   ```bash
+   # Go to Settings → Environments → production
+   # Verify you're listed under "Required reviewers"
+   ```
+
+2. **Check notification settings:**
+   ```bash
+   # Go to GitHub Profile → Settings → Notifications
+   # Ensure "Actions" notifications are enabled
+   ```
+
+3. **Manual approval process:**
+   ```bash
+   # 1. Go to GitHub Actions
+   # 2. Click on the waiting pipeline run
+   # 3. Look for "Review pending deployments"  
+   # 4. Click "Review deployments"
+   # 5. Select "production" environment
+   # 6. Add comment and click "Approve and deploy"
+   ```
+
+#### Issue 3: AWS Permission Errors
+
+**Problem:** Pipeline fails with AWS permission denied
+
+**Solutions:**
+
+```bash
+# 1. Verify AWS credentials work locally:
+aws sts get-caller-identity
+
+# 2. Check if secrets are set correctly:
+# Go to Settings → Environments → development/production
+# Verify both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY exist
+
+# 3. Test minimal permissions needed:
+aws s3 ls  # Should work
+aws s3 mb s3://test-bucket-$(date +%s) --region us-east-1  # Should work
+```
+
+#### Issue 4: Backend State Conflicts
+
+**Problem:** "Error acquiring the state lock"
+
+**Solutions:**
+
+```bash
+# 1. Check if lock is stuck:
+aws dynamodb scan --table-name terraform-state-demo-locks
+
+# 2. Force unlock if needed (CAREFUL!):
+cd environments/dev
+terraform force-unlock LOCK_ID_FROM_ERROR
+
+# 3. Verify backend bucket exists:
+aws s3 ls | grep terraform-state-demo-bucket
+```
+
+#### Issue 5: Environment Variables Not Working
+
+**Problem:** Terraform variables not being passed correctly
+
+**Check the variable hierarchy:**
+
+```bash
+# Variables are loaded in this order (later overrides earlier):
+# 1. Default values in variables.tf
+# 2. terraform.tfvars file  
+# 3. Environment variables (TF_VAR_*)
+# 4. Command line (-var)
+
+# Verify your terraform.tfvars:
+cat environments/dev/terraform.tfvars
+cat environments/prod/terraform.tfvars
+```
+
+### Pipeline Monitoring Tips
+
+#### Real-time Pipeline Status
+
+**📊 Watch pipelines in real-time:**
+
+```bash
+# Method 1: GitHub CLI (if installed)
+gh run list --workflow="Terraform Development Environment"
+gh run watch
+
+# Method 2: Browser bookmarks
+# Bookmark these URLs for quick access:
+# https://github.com/YOUR_USERNAME/terraform_workshop/actions/workflows/terraform-dev.yml
+# https://github.com/YOUR_USERNAME/terraform_workshop/actions/workflows/terraform-prod.yml
+```
+
+#### Pipeline Notifications
+
+**🔔 Set up notifications:**
+
+1. **GitHub Mobile App**
+   - Install GitHub mobile app
+   - Enable push notifications for Actions
+
+2. **Email Notifications**
+   - Go to Profile → Settings → Notifications
+   - Configure Actions email notifications
+
+3. **Slack Integration** (optional)
+   - Set up GitHub app in Slack
+   - Get notifications in team channels
+
+### Success Metrics
+
+After completing this walkthrough, you should have:
+
+✅ **Functional Pipelines**
+- Development pipeline triggers automatically on dev changes
+- Production pipeline requires manual trigger + approval
+- Both pipelines deploy successfully
+
+✅ **Infrastructure Deployed**
+- S3 bucket in development environment
+- S3 bucket in production environment (with versioning)
+- Different configurations per environment
+
+✅ **CI/CD Skills Demonstrated**
+- Environment separation 
+- Approval workflows
+- Infrastructure as Code
+- Automated testing
+- Manual deployment controls
+
+✅ **Enterprise Practices**
+- Audit trail of all deployments
+- Environment-specific configurations  
+- Controlled production changes
+- Fast development feedback loops
+
+## Pipeline Usage
+
+### Development Workflow
+
+```bash
+# 1. Make changes to development environment
+vim environments/dev/main.tf
+
+# 2. Commit and push changes
+git add environments/dev/
+git commit -m "feat: add S3 bucket lifecycle policy to dev"
+git push origin main
+
+# 3. Development pipeline automatically triggers
+# 4. Check GitHub Actions for deployment status
+```
+
+**Development Pipeline Flow:**
+- ✅ Automatic trigger on dev folder changes
+- ✅ Deploy to development environment
+- ✅ Run Terratest validation
+- ✅ Provide immediate feedback
+
+### Production Deployment
+
+#### Option 1: Manual Dispatch (Recommended)
+```bash
+# 1. Go to GitHub Actions tab
+# 2. Select "Terraform Production Environment"
+# 3. Click "Run workflow"
+# 4. Enter deployment reason: "Monthly security updates"
+# 5. Click "Run workflow"
+# 6. Wait for approval notification
+# 7. Approve deployment when ready
+```
+
+#### Option 2: Tag-based Deployment
+```bash
+# 1. Create a release tag
+git tag v1.2.3
+git push origin v1.2.3
+
+# 2. Production pipeline automatically triggers
+# 3. Wait for approval
+# 4. Approve deployment when ready
+```
+
+**Production Pipeline Flow:**
+- ⏸️ Manual trigger (intentional deployment)
+- 🛑 Approval required (safety gate)
+- ✅ Deploy to production environment
+- ✅ Run production validation tests
+- ✅ Complete deployment
 
 ## Environment Examples
 
-The current setup uses S3 buckets as examples, but the pipeline supports any infrastructure:
-
 ### Development Environment
 ```hcl
-# Example: Simple S3 bucket
+# Simple S3 bucket for development
 resource "aws_s3_bucket" "dev_bucket" {
   bucket = "${var.project_name}-${var.environment}-bucket"
   
   tags = {
-    Environment = "dev"
+    Name        = "${var.project_name}-${var.environment}-bucket"
+    Environment = var.environment
     Purpose     = "Development"
   }
 }
@@ -114,12 +771,13 @@ resource "aws_s3_bucket" "dev_bucket" {
 
 ### Production Environment
 ```hcl
-# Example: S3 bucket with production features
+# S3 bucket with production features
 resource "aws_s3_bucket" "prod_bucket" {
   bucket = "${var.project_name}-${var.environment}-bucket"
   
   tags = {
-    Environment = "prod"
+    Name        = "${var.project_name}-${var.environment}-bucket"
+    Environment = var.environment
     Purpose     = "Production"
     Criticality = "High"
   }
@@ -132,294 +790,118 @@ resource "aws_s3_bucket_versioning" "prod_bucket" {
     status = "Enabled"
   }
 }
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "prod_bucket" {
+  bucket = aws_s3_bucket.prod_bucket.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
 ```
 
-## Infrastructure Testing
+## Testing Strategy
 
-### Generic Test Structure
+### Automated Testing with Terratest
+
 ```go
 func TestTerraformCICDDev(t *testing.T) {
-    // 1. Deploy any infrastructure
-    terraform.InitAndApply(t, terraformOptions)
+    // Test development environment
+    // This runs after dev deployment
     
-    // 2. Validate outputs exist
-    outputs := terraform.OutputAll(t, terraformOptions)
-    assert.NotEmpty(t, outputs)
-    
-    // 3. Test specific resources (customize per infrastructure)
-    // Example for S3:
-    bucketName := outputs["bucket_info"].(map[string]interface{})["bucket_name"].(string)
+    // Test S3 bucket exists
+    bucketName := "terraform-cicd-demo-dev-bucket"
     aws.AssertS3BucketExists(t, "us-east-1", bucketName)
     
-    // Example for EC2:
-    // instanceId := outputs["instance_info"].(map[string]interface{})["instance_id"].(string)
-    // aws.AssertEc2InstanceExists(t, "us-east-1", instanceId)
+    // Test bucket tags
+    bucketTags := aws.GetS3BucketTags(t, "us-east-1", bucketName)
+    assert.Equal(t, "dev", bucketTags["Environment"])
+}
+
+func TestTerraformCICDProd(t *testing.T) {
+    // Test production environment
+    // This runs after prod deployment
+    
+    // Test S3 bucket exists
+    bucketName := "terraform-cicd-demo-prod-bucket"
+    aws.AssertS3BucketExists(t, "us-east-1", bucketName)
+    
+    // Test production features
+    versioningConfig := aws.GetS3BucketVersioning(t, "us-east-1", bucketName)
+    assert.Equal(t, "Enabled", versioningConfig)
 }
 ```
 
-## Setup Instructions
+## Troubleshooting
 
-### Prerequisites
+### Common Issues
 
-1. **AWS Account** with appropriate permissions
-2. **GitHub Repository** with Actions enabled
-3. **Terraform** >= 1.6.0
-4. **Go** >= 1.19 (for running tests locally)
+| Issue | Solution |
+|-------|----------|
+| **Dev pipeline not triggering** | Check that changes are in `environments/dev/**` folder |
+| **Production approval not working** | Verify production environment has required reviewers |
+| **Backend errors** | Ensure 5.1 remote state experiment is completed |
+| **Permission denied** | Check AWS credentials in environment secrets |
 
-### GitHub Environment Setup
+### Status Indicators
 
-#### Step 1: Create GitHub Environments
-
-**📋 Detailed Steps to Create GitHub Environments:**
-
-1. **Navigate to Your Repository**
-   - Go to your GitHub repository
-   - Click on the **Settings** tab (top navigation bar)
-
-2. **Access Environments Section**
-   - In the left sidebar, scroll down to **Code and automation**
-   - Click on **Environments**
-
-3. **Create Development Environment**
-   - Click **New environment** button
-   - Enter environment name: `development`
-   - Click **Configure environment**
-   - **Deployment protection rules**: Leave unchecked (automatic deployment)
-   - **Environment secrets**: We'll add these next
-   - Click **Save protection rules**
-
-4. **Create Production Environment**
-   - Click **New environment** button
-   - Enter environment name: `production`
-   - Click **Configure environment**
-   
-   **Configure Production Protection Rules:**
-   - ✅ Check **Required reviewers**
-   - Click **Add reviewers** and select:
-     - Your GitHub username
-     - Or a team (e.g., `@your-org/devops-team`)
-   - Set **Prevent self-review** (recommended)
-   - ✅ Check **Deployment branches and tags**
-   - Select **Protected branches only** 
-   - Click **Save protection rules**
-
-5. **Verify Environment Creation**
-   - You should now see both environments listed:
-     - `development` (No protection rules)
-     - `production` (Protection rules: Required reviewers)
-
-#### Step 2: Configure Branch Protection (Required for Production)
-
-**📋 Set Up Branch Protection Rules:**
-
-1. **Navigate to Branches**
-   - In your repository, go to **Settings** → **Branches**
-
-2. **Add Branch Protection Rule**
-   - Click **Add rule**
-   - Branch name pattern: `main`
-   - ✅ Check **Require a pull request before merging**
-   - ✅ Check **Require status checks to pass before merging**
-   - ✅ Check **Require branches to be up to date before merging**
-   - Click **Create** or **Save changes**
-
-#### Step 3: Configure Environment Secrets
-
-**📋 Add AWS Credentials to Each Environment:**
-
-1. **For Development Environment:**
-   - Go to **Settings** → **Environments** → `development`
-   - Scroll to **Environment secrets** section
-   - Click **Add secret**
-   - Name: `AWS_ACCESS_KEY_ID`
-   - Value: Your AWS Access Key for development
-   - Click **Add secret**
-   - Repeat for `AWS_SECRET_ACCESS_KEY`
-
-2. **For Production Environment:**
-   - Go to **Settings** → **Environments** → `production`
-   - Scroll to **Environment secrets** section
-   - Click **Add secret**
-   - Name: `AWS_ACCESS_KEY_ID`
-   - Value: Your AWS Access Key for production
-   - Click **Add secret**
-   - Repeat for `AWS_SECRET_ACCESS_KEY`
-
-**🔐 Security Best Practice:**
-| Secret Name | Development Value | Production Value |
-|-------------|------------------|------------------|
-| `AWS_ACCESS_KEY_ID` | Your dev AWS Access Key | Your prod AWS Access Key |
-| `AWS_SECRET_ACCESS_KEY` | Your dev AWS Secret Key | Your prod AWS Secret Key |
-
-**💡 Tip:** Use different AWS accounts/keys for dev vs prod environments for better security.
-
-#### Step 4: Test Environment Setup
-
-**📋 Verify Your Environment Configuration:**
-
-1. **Check Environment Status**
-   - Go to **Settings** → **Environments**
-   - Verify both environments are listed:
-     ```
-     ✅ development (No protection rules)
-     ✅ production (Protection rules: Required reviewers)
-     ```
-
-2. **Test Environment Secrets**
-   - Go to each environment
-   - Click on the environment name
-   - Verify secrets are listed (values hidden for security):
-     ```
-     🔐 AWS_ACCESS_KEY_ID
-     🔐 AWS_SECRET_ACCESS_KEY
-     ```
-
-3. **Test Branch Protection**
-   - Go to **Settings** → **Branches**
-   - Verify `main` branch has protection rules:
-     ```
-     ✅ main (Protected branch)
-     ```
-
-#### Step 5: Troubleshooting Common Issues
-
-**🔧 Common Setup Problems and Solutions:**
-
-| Problem | Solution |
-|---------|----------|
-| **"Environment not found" error** | 1. Check environment name spelling (case-sensitive)<br>2. Ensure environment is created in correct repository<br>3. Verify workflow file references correct environment names |
-| **"Environment protection rules failed"** | 1. Ensure branch protection is enabled for `main`<br>2. Check that reviewer has repository permissions<br>3. Verify reviewer is not the same as the person triggering deployment |
-| **"Secrets not found" error** | 1. Check secret names match exactly (case-sensitive)<br>2. Ensure secrets are added to environment, not repository<br>3. Verify AWS credentials are valid and not expired |
-| **"Permission denied" during deployment** | 1. Check AWS IAM permissions for the credentials<br>2. Verify credentials work with `aws sts get-caller-identity`<br>3. Ensure AWS region matches your configuration |
-| **"Approval required but no reviewers"** | 1. Add reviewers to production environment<br>2. Ensure reviewers have repository access<br>3. Check that branch protection allows the workflow |
-
-**🔍 Quick Environment Test:**
-
-To test if your environments are working, create a simple test workflow:
-
-```yaml
-name: Test Environments
-on:
-  workflow_dispatch:
-
-jobs:
-  test-dev:
-    runs-on: ubuntu-latest
-    environment: development
-    steps:
-      - name: Test Development Environment
-        run: echo "✅ Development environment works!"
-
-  test-prod:
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Test Production Environment
-        run: echo "✅ Production environment works!"
+#### Development Pipeline
+```
+✅ Development: SUCCESS
+✅ Tests: PASSED
+🚀 Development environment ready
 ```
 
-**Expected Results:**
-- Development job runs immediately
-- Production job waits for manual approval
-- Both jobs complete successfully after approval
+#### Production Pipeline
+```
+🛑 Production: WAITING_FOR_APPROVAL
+👤 Waiting for: @team-lead
+📋 Reason: "Monthly security updates"
 
-### AWS IAM Permissions
-
-Create an IAM user with permissions for your infrastructure:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:*",
-        "ec2:*",
-        "iam:*",
-        "rds:*"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
+After approval:
+✅ Production: SUCCESS
+✅ Tests: PASSED
+🎉 Production deployment complete
 ```
 
-### Backend Setup
+## Best Practices Demonstrated
 
-Create the S3 bucket for remote state:
+1. **Environment Isolation**: Complete separation between dev and prod
+2. **Controlled Deployments**: Manual approval for production changes
+3. **Fast Development**: Dev pipeline runs independently
+4. **Audit Trail**: All deployments tracked with reasons and approvers
+5. **Failure Isolation**: Issues in one environment don't affect others
+6. **Testing Strategy**: Environment-specific validation
+7. **Infrastructure as Code**: All infrastructure defined in code
+8. **State Management**: Centralized state with environment separation
 
-```bash
-# Create state bucket
-aws s3 mb s3://terraform-cicd-demo-state-bucket --region us-east-1
-```
+## Extending the Pipeline
 
-## Pipeline Workflow
+### Adding New Environments
 
-### Step 1: Code Push
-```bash
-git add .
-git commit -m "feat: update infrastructure"
-git push origin main
-```
+1. Create new environment folder: `environments/staging/`
+2. Create new pipeline: `.github/workflows/terraform-staging.yml`
+3. Configure GitHub environment: `staging`
+4. Update backend state keys
 
-### Step 2: Automatic Development Deployment
-```
-🏗️ Development Environment
-✅ Terraform Format: PASSED
-✅ Terraform Init: SUCCESS
-✅ Terraform Validate: SUCCESS
-✅ Terraform Plan: SUCCESS
-✅ Terraform Apply: SUCCESS
-📊 Outputs: Available in GitHub Summary
-```
+### Adding More Infrastructure
 
-### Step 3: Automatic Testing
-```
-🧪 Infrastructure Tests
-✅ Development Infrastructure: VALIDATED
-✅ Terratest: PASSED
-📋 All tests completed successfully
-```
-
-### Step 4: Production Approval
-```
-🛑 Production Deployment Approval Required
-👤 Waiting for manual approval from: @reviewer
-📋 Review terraform plan before approving
-⏳ Deployment will proceed after approval
-```
-
-### Step 5: Production Deployment (After Approval)
-```
-🚀 Production Environment
-✅ Manual Approval: RECEIVED
-✅ Terraform Format: PASSED
-✅ Terraform Init: SUCCESS
-✅ Terraform Validate: SUCCESS
-✅ Terraform Plan: SUCCESS
-✅ Terraform Apply: SUCCESS
-📊 Outputs: Available in GitHub Summary
-```
-
-## Customizing for Your Infrastructure
-
-### 1. **Replace Example Resources**
-
-Update `environments/dev/main.tf` and `environments/prod/main.tf`:
+Replace S3 buckets with your infrastructure:
 
 ```hcl
-# Instead of S3 buckets, use your infrastructure:
-resource "aws_instance" "web_server" {
+# EC2 instances
+resource "aws_instance" "app_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   
   tags = {
-    Name        = "${var.project_name}-${var.environment}-web"
+    Name        = "${var.project_name}-${var.environment}-app"
     Environment = var.environment
   }
 }
 
+# RDS databases
 resource "aws_db_instance" "database" {
   engine      = "mysql"
   engine_version = "8.0"
@@ -432,367 +914,4 @@ resource "aws_db_instance" "database" {
 }
 ```
 
-### 2. **Update Variables**
-
-Modify `variables.tf` files:
-
-```hcl
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
-  default     = "t3.micro"  # dev
-  # default   = "t3.medium" # prod
-}
-
-variable "db_instance_class" {
-  description = "Database instance class"
-  type        = string
-  default     = "db.t3.micro"  # dev
-  # default   = "db.t3.small"  # prod
-}
-```
-
-### 3. **Customize Tests**
-
-Update `tests/terraform_test.go`:
-
-```go
-func TestTerraformCICDDev(t *testing.T) {
-    // Deploy infrastructure
-    terraform.InitAndApply(t, terraformOptions)
-    
-    // Test EC2 instance
-    instanceId := terraform.Output(t, terraformOptions, "instance_id")
-    aws.AssertEc2InstanceExists(t, "us-east-1", instanceId)
-    
-    // Test database
-    dbEndpoint := terraform.Output(t, terraformOptions, "db_endpoint")
-    assert.NotEmpty(t, dbEndpoint)
-    
-    // Custom health checks
-    testApplicationHealth(t, instanceId)
-}
-```
-
-### 4. **Update Outputs**
-
-Modify `outputs.tf` files:
-
-```hcl
-output "instance_info" {
-  description = "EC2 instance information"
-  value = {
-    instance_id = aws_instance.web_server.id
-    public_ip   = aws_instance.web_server.public_ip
-    dns_name    = aws_instance.web_server.public_dns
-  }
-}
-
-output "database_info" {
-  description = "Database connection information"
-  value = {
-    endpoint = aws_db_instance.database.endpoint
-    port     = aws_db_instance.database.port
-  }
-  sensitive = true
-}
-```
-
-## Approval Workflow
-
-### How Production Approval Works
-
-1. **Automatic Trigger**: When tests pass, production job starts
-2. **Approval Pause**: GitHub pauses and sends notification to reviewers
-3. **Manual Review**: Reviewers can see terraform plan in GitHub UI
-4. **Approval Decision**: Approve or reject the deployment
-5. **Automatic Deployment**: If approved, terraform apply runs
-
-### Approval Notifications
-
-Reviewers receive notifications via:
-- 📧 **Email**: GitHub sends approval request email
-- 🔔 **GitHub UI**: Notification appears in GitHub interface
-- 📱 **Mobile**: GitHub mobile app notifications (if configured)
-
-### Approval Interface
-
-In GitHub Actions:
-```
-🛑 Review pending
-Environment: production
-Reviewer: @your-username
-
-[ Review deployment ]  [ View details ]
-
-Terraform Plan:
-+ aws_s3_bucket.prod_bucket
-+ aws_s3_bucket_versioning.prod_bucket
-+ aws_s3_bucket_server_side_encryption_configuration.prod_bucket
-
-Plan: 3 to add, 0 to change, 0 to destroy.
-
-[ ✅ Approve and deploy ]  [ ❌ Reject ]
-```
-
-## Monitoring and Troubleshooting
-
-### Pipeline Status Indicators
-
-```
-✅ Development: SUCCESS
-✅ Tests: PASSED  
-🛑 Production: WAITING_FOR_APPROVAL
-```
-
-```
-✅ Development: SUCCESS
-✅ Tests: PASSED
-✅ Production: SUCCESS (Approved by @reviewer)
-```
-
-### Common Approval Scenarios
-
-#### Scenario 1: Standard Approval
-```
-🛑 Production deployment requires approval
-👤 Waiting for: @team-lead
-⏳ Auto-timeout: 30 days
-```
-
-#### Scenario 2: Rejected Deployment
-```
-❌ Production deployment rejected
-👤 Rejected by: @team-lead
-💬 Reason: "Please update security group rules"
-```
-
-#### Scenario 3: Auto-timeout
-```
-⏰ Production deployment timed out
-📅 Waited: 30 days without approval
-🔄 Re-run pipeline to try again
-```
-
-## Security Best Practices
-
-### 1. **Environment Isolation**
-- Separate AWS accounts for dev/prod (recommended)
-- Different IAM roles with least privilege
-- Separate state backends
-
-### 2. **Approval Controls**
-- Require multiple approvers for production
-- Use teams instead of individual reviewers
-- Set approval timeouts
-
-### 3. **Secret Management**
-- Use GitHub environment secrets
-- Rotate AWS keys regularly
-- Consider AWS OIDC instead of static keys
-
-## Local Testing Guide
-
-### Prerequisites for Local Testing
-
-1. **Install Go** (>= 1.22)
-   ```bash
-   # macOS
-   brew install go
-   
-   # Verify installation
-   go version
-   ```
-
-2. **Configure AWS Credentials**
-   ```bash
-   # Option 1: AWS SSO
-   aws sso login
-   
-   # Option 2: AWS Configure
-   aws configure
-   
-   # Verify credentials
-   aws sts get-caller-identity
-   ```
-
-### Running Tests Locally
-
-#### **Step 1: Navigate to Tests Directory**
-```bash
-cd "MTU/5.2 terraform cicd/tests"
-```
-
-#### **Step 2: Install Dependencies**
-```bash
-# Download dependencies (uses go.mod/go.sum)
-go mod download
-
-# Verify dependencies
-go list -m all
-```
-
-#### **Step 3: Deploy Infrastructure First**
-```bash
-# Deploy development environment
-cd ../environments/dev
-terraform init
-terraform apply -auto-approve
-
-# Note the bucket name: terraform-cicd-demo-dev-bucket
-```
-
-#### **Step 4: Run Terratest**
-```bash
-# Go back to tests directory
-cd ../../tests
-
-# Run development environment tests
-go test -v -timeout 15m -run TestTerraformCICDDev
-
-# Run specific test
-go test -v -run TestTerraformCICDDev/DevBucketExists
-
-# Run all tests (if you have both dev and prod deployed)
-go test -v -timeout 15m ./...
-```
-
-#### **Step 5: Clean Up**
-```bash
-# Destroy development infrastructure
-cd ../environments/dev
-terraform destroy -auto-approve
-```
-
-### **Expected Test Output**
-
-✅ **Successful Run:**
-```
-=== RUN   TestTerraformCICDDev
-=== RUN   TestTerraformCICDDev/DevBucketExists
-=== RUN   TestTerraformCICDDev/DevBucketTags
-=== RUN   TestTerraformCICDDev/DevBucketNaming
---- PASS: TestTerraformCICDDev (2.34s)
-    --- PASS: TestTerraformCICDDev/DevBucketExists (1.12s)
-    --- PASS: TestTerraformCICDDev/DevBucketTags (0.89s)
-    --- PASS: TestTerraformCICDDev/DevBucketNaming (0.01s)
-PASS
-```
-
-❌ **Failed Run (if infrastructure not deployed):**
-```
-=== RUN   TestTerraformCICDDev/DevBucketExists
-    Error: NotFound: Not Found
-    status code: 404
---- FAIL: TestTerraformCICDDev/DevBucketExists
-```
-
-### **Local Testing Tips**
-
-💡 **Best Practices:**
-- Always deploy infrastructure before running tests
-- Use unique bucket names to avoid conflicts
-- Clean up resources after testing
-- Test against development environment only
-
-🔧 **Troubleshooting:**
-```bash
-# Check AWS credentials
-aws sts get-caller-identity
-
-# Check Go installation
-go version
-
-# Check if bucket exists
-aws s3 ls | grep terraform-cicd-demo
-
-# Force clean Go module cache
-go clean -modcache
-```
-
-### **Local vs CI/CD Testing**
-
-| Aspect | Local Testing | CI/CD Testing |
-|--------|---------------|---------------|
-| **Purpose** | Development & debugging | Quality gate |
-| **Infrastructure** | You deploy manually | Pipeline deploys automatically |
-| **Scope** | Single environment | Full dev → prod flow |
-| **Cleanup** | Manual cleanup required | Automatic in pipeline |
-
-## Success Metrics
-
-### Performance Targets
-- **Development Deployment**: < 5 minutes
-- **Test Execution**: < 15 minutes  
-- **Production Deployment**: < 5 minutes (after approval)
-- **Approval Response Time**: < 4 hours (business hours)
-
-### Quality Metrics
-- **Test Coverage**: 100% of critical resources
-- **Deployment Success Rate**: > 95%
-- **Approval Rejection Rate**: < 10%
-- **Pipeline Reliability**: > 99%
-
-## Advanced Configuration
-
-### Multiple Approval Strategies
-
-#### Strategy 1: Team-Based Approval
-```yaml
-environment: 
-  name: production
-  required-reviewers: 
-    - devops-team
-    - security-team
-  minimum-reviewers: 2
-```
-
-#### Strategy 2: Branch-Based Deployment
-```yaml
-environment:
-  name: production
-  deployment-branch-policy:
-    protected-branches: true
-    custom-branch-policies: false
-```
-
-#### Strategy 3: Time-Based Windows
-```yaml
-environment:
-  name: production
-  wait-timer: 5  # Wait 5 minutes before allowing approval
-  deployment-timeout: 1440  # 24 hours to approve
-```
-
-## Troubleshooting Guide
-
-### Issue 1: Approval Not Working
-```
-Error: Environment 'production' not found
-```
-**Solution**: Create production environment in GitHub Settings → Environments
-
-### Issue 2: Tests Failing
-```
-Error: Terratest timeout after 15 minutes
-```
-**Solution**: Increase timeout in workflow or optimize infrastructure deployment
-
-### Issue 3: State Lock Issues
-```
-Error: state lock not released
-```
-**Solution**: Use terraform force-unlock or check S3 backend configuration
-
-## Conclusion
-
-This pipeline provides enterprise-grade Terraform automation with:
-
-✅ **Generic Infrastructure Support**: Works with any Terraform resources
-✅ **Production Approval Workflow**: Manual approval required for production
-✅ **Comprehensive Testing**: Automated validation with Terratest
-✅ **Environment Isolation**: Separate dev/prod configurations and state
-✅ **Failure Recovery**: Automatic cleanup and detailed error reporting
-✅ **Scalable Architecture**: Easy to extend for additional environments
-
-The approval workflow ensures production deployments are reviewed and authorized, making it suitable for enterprise environments where change control is critical. 
+This architecture provides enterprise-grade CI/CD with proper environment separation, making it suitable for production use while maintaining fast development cycles!

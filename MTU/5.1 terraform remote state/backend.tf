@@ -3,8 +3,10 @@
 
 terraform {
   backend "s3" {
-    # S3 bucket for storing state files
-    bucket = "terraform-state-demo-bucket-12345"
+    # ⚠️ IMPORTANT: Replace with actual bucket name from backend-setup output
+    # Run 'terraform output -raw state_bucket_name' in backend-setup/ directory
+    # Then update the bucket name below
+    bucket = "terraform-state-demo-bucket-51362f55"
 
     # Path/key for the state file within the bucket
     key = "terraform-state-demo/terraform.tfstate"

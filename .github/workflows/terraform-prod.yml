@@ -1,0 +1,185 @@
+name: "Terraform Production Environment"
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for production deployment"
+        required: true
+        default: "Production deployment"
+
+  push:
+    tags:
+      - "v*"
+      - "release-*"
+    paths:
+      - "MTU/5.2 terraform cicd/environments/prod/**"
+      - ".github/workflows/terraform-prod.yml"
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: "1.9.8"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  # Job 1: Deploy to Production
+  terraform-prod:
+    name: "Deploy to Production"
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: MTU/5.2 terraform cicd/environments/prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log Deployment Reason
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "🚀 Production deployment triggered manually"
+          echo "📋 Reason: ${{ github.event.inputs.reason }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+
+      - name: Log Tag Deployment
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "🚀 Production deployment triggered by tag"
+          echo "🏷️ Tag: ${{ github.ref_name }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false
+
+      - name: Review Plan
+        run: |
+          echo "📋 Please review the Terraform plan above before proceeding"
+          echo "🔍 Verify all changes are expected for production environment"
+          echo "✅ If plan looks correct, the deployment will proceed automatically"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false
+
+      - name: Extract Production Outputs
+        id: extract_prod_outputs
+        run: |
+          # Extract all outputs as JSON
+          OUTPUTS=$(terraform output -json)
+          echo "PROD_OUTPUTS=$OUTPUTS" >> $GITHUB_OUTPUT
+          echo "Production deployment outputs:"
+          echo "$OUTPUTS" | jq .
+
+      - name: Validate Production Infrastructure
+        run: |
+          echo "🔍 Validating production infrastructure..."
+
+          # Parse outputs from production deployment
+          PROD_OUTPUTS='${{ steps.extract_prod_outputs.outputs.PROD_OUTPUTS }}'
+          echo "Production outputs: $PROD_OUTPUTS"
+
+          # Basic validation that outputs exist
+          if [ "$PROD_OUTPUTS" = "null" ] || [ "$PROD_OUTPUTS" = "{}" ]; then
+            echo "❌ No outputs found from production deployment"
+            exit 1
+          else
+            echo "✅ Production infrastructure validated"
+            echo "🚀 Production deployment completed successfully!"
+          fi
+
+      - name: Create Production Summary
+        run: |
+          echo "# 🚀 Production Environment Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "- **Reason**: ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Infrastructure Outputs" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          terraform output -json | jq . >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      prod_outputs: ${{ steps.extract_prod_outputs.outputs.PROD_OUTPUTS }}
+
+  # Job 2: Run Production Tests (Optional)
+  terraform-prod-test:
+    name: "Run Production Tests"
+    runs-on: ubuntu-latest
+    needs: terraform-prod
+    if: always() && needs.terraform-prod.result == 'success'
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: MTU/5.2 terraform cicd/tests
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.22"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Run Terratest on Production Environment
+        run: |
+          echo "🧪 Testing the production environment..."
+          echo "📋 This validates the S3 bucket that was just deployed"
+          go test -v -timeout 15m -run TestTerraformCICDProd ./...
+
+      - name: Create Production Test Summary
+        if: always()
+        run: |
+          echo "# 🧪 Production Environment Tests Completed" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ All production tests passed - environment is validated" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 Production deployment is fully verified" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some production tests failed - check logs above" >> $GITHUB_STEP_SUMMARY
+            echo "🚨 Production environment may need attention" >> $GITHUB_STEP_SUMMARY
+          fi

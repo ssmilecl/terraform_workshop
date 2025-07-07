@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
   # Uses LOCAL state because we're creating the backend infrastructure
 }
@@ -17,9 +21,14 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Generate a random ID for unique bucket naming
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
 # S3 bucket for storing Terraform state files
 resource "aws_s3_bucket" "state_bucket" {
-  bucket = var.state_bucket_name
+  bucket = "${var.state_bucket_prefix}-${random_id.bucket_suffix.hex}"
 
   tags = {
     Name    = "Terraform State Bucket"
