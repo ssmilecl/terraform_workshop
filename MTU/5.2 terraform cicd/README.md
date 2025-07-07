@@ -621,7 +621,38 @@ terraform force-unlock LOCK_ID_FROM_ERROR
 aws s3 ls | grep terraform-state-demo-bucket
 ```
 
-#### Issue 5: Environment Variables Not Working
+#### Issue 5: JSON Parse Errors in Pipeline
+
+**Problem:** `jq: parse error: Invalid numeric literal` or `Invalid format '{'`
+
+**Solutions:**
+
+```bash
+# This happens when terraform output returns empty or invalid JSON
+
+# 1. Check if outputs are defined:
+cat environments/dev/outputs.tf
+cat environments/prod/outputs.tf
+
+# 2. Test terraform output locally:
+cd environments/dev
+terraform init
+terraform output -json
+
+# 3. If output is empty, it means:
+# - No resources deployed yet, OR
+# - No output blocks defined in outputs.tf
+
+# 4. The pipeline now handles this gracefully with fallback JSON
+```
+
+**Expected behavior after fix:**
+```
+✅ No outputs found from Terraform
+✅ Using fallback: {"status": "no_outputs", "message": "Deployment successful"}
+```
+
+#### Issue 6: Environment Variables Not Working
 
 **Problem:** Terraform variables not being passed correctly
 
