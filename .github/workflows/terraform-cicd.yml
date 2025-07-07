@@ -24,7 +24,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ./environments/dev
+        working-directory: MTU/5.2 terraform cicd/environments/dev
 
     steps:
       - name: Checkout
@@ -134,7 +134,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ./tests
+        working-directory: MTU/5.2 terraform cicd/tests
 
     steps:
       - name: Checkout
@@ -184,7 +184,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ./environments/prod
+        working-directory: MTU/5.2 terraform cicd/environments/prod
 
     steps:
       - name: Checkout
