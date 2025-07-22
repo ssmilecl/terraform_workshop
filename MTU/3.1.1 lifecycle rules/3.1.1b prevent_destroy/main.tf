@@ -27,9 +27,9 @@ resource "aws_s3_bucket" "critical_data" {
 
   # Lifecycle rule: prevent_destroy
   # This resource cannot be destroyed via terraform destroy
-  lifecycle {
-    prevent_destroy = true
-  }
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 }
 
 # S3 bucket versioning (also protected)
@@ -40,10 +40,10 @@ resource "aws_s3_bucket_versioning" "critical_data" {
   }
 
   # Also protect versioning configuration
-  lifecycle {
-    prevent_destroy = true
-  }
-}
+#   lifecycle {
+#     prevent_destroy = true
+#   }
+ }
 
 # Regular S3 bucket (for comparison - can be destroyed)
 resource "aws_s3_bucket" "regular_data" {

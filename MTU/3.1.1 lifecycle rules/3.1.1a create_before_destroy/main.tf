@@ -18,7 +18,7 @@ provider "aws" {
 # Useful for resources that cannot have downtime
 resource "aws_security_group" "web" {
   name_prefix = "${var.environment}-web-sg"
-  description = "Security group for web servers"
+  description = "Security group for web servers - UPDATED "
 
   ingress {
     from_port   = 80
